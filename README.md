@@ -117,6 +117,7 @@ npm run dev
 ```
 
 Open [http://localhost:5173](http://localhost:5173)
+https://wokwi.com/projects/478508253547370497
 
 ### Production build
 
