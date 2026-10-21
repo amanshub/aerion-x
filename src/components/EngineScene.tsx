@@ -1,331 +1,174 @@
-
-import { memo, Suspense, useMemo } from 'react'
+import { Suspense } from 'react'
 import { Canvas } from '@react-three/fiber'
-import { Html, OrbitControls } from '@react-three/drei'
+import { OrbitControls, PerspectiveCamera, Environment } from '@react-three/drei'
 import * as THREE from 'three'
 
 export type EngineView = 'SIDE' | 'REAR'
-type DisplayMode = 'MODEL' | 'X-RAY' | 'SCHEMATIC'
+export type DisplayMode = 'MODEL' | 'X-RAY' | 'SCHEMATIC'
 
-const ENGINE_COLORS = {
-  steel: '#777a70',
-  lightSteel: '#bcb9ac',
-  paleMetal: '#d8d3c5',
-  darkMetal: '#3d4039',
-  bronze: '#d1a16f',
-  exhaust: '#ed9b58',
+interface EngineSceneProps {
+  throttle: number
+  target: number
+  actual?: number
+  running: boolean
+  view: EngineView
+  displayMode: DisplayMode
 }
 
-function MetalCylinder({
-  x,
-  length,
-  radius,
-  color,
-  roughness = 0.42,
-}: {
-  x: number
-  length: number
-  radius: number
-  color: string
-  roughness?: number
-}) {
-  return (
-    <mesh
-      position={[x, 0, 0]}
-      rotation={[0, 0, Math.PI / 2]}
-      castShadow
-      receiveShadow
-    >
-      <cylinderGeometry args={[radius, radius, length, 48]} />
-      <meshStandardMaterial
-        color={color}
-        metalness={0.82}
-        roughness={roughness}
-      />
-    </mesh>
-  )
+const clamp = (value: number, min = 0, max = 100) =>
+  Math.max(min, Math.min(max, value))
+
+function material(mode: DisplayMode, color: string, metalness = 0.65) {
+  return new THREE.MeshStandardMaterial({
+    color: mode === 'MODEL' ? color : '#a8aaa5',
+    metalness: mode === 'SCHEMATIC' ? 0.05 : metalness,
+    roughness: mode === 'SCHEMATIC' ? 0.9 : 0.38,
+    transparent: mode === 'X-RAY',
+    opacity: mode === 'X-RAY' ? 0.4 : 1,
+    wireframe: mode === 'SCHEMATIC',
+  })
 }
 
 function Ring({
   x,
   radius,
-  tube = 0.035,
-  color = '#c4c0b3',
+  mode,
+  color = '#b9beb9',
 }: {
   x: number
   radius: number
-  tube?: number
+  mode: DisplayMode
   color?: string
 }) {
   return (
     <mesh
       position={[x, 0, 0]}
       rotation={[0, Math.PI / 2, 0]}
-      castShadow
+      material={material(mode, color)}
     >
-      <torusGeometry args={[radius, tube, 10, 56]} />
-      <meshStandardMaterial
-        color={color}
-        metalness={0.9}
-        roughness={0.28}
-      />
+      <torusGeometry args={[radius, 0.035, 10, 48]} />
+    </mesh>
+  )
+}
+
+function Duct({
+  x,
+  radius,
+  length,
+  mode,
+  color = '#7b8588',
+}: {
+  x: number
+  radius: number
+  length: number
+  mode: DisplayMode
+  color?: string
+}) {
+  return (
+    <mesh
+      position={[x, 0, 0]}
+      rotation={[0, 0, Math.PI / 2]}
+      material={material(mode, color)}
+    >
+      <cylinderGeometry args={[radius, radius, length, 40, 1, true]} />
     </mesh>
   )
 }
 
 function BladeStage({
   x,
-  count,
   radius,
-  innerRadius,
-  color,
-  width = 0.11,
+  count,
+  mode,
 }: {
   x: number
-  count: number
   radius: number
-  innerRadius: number
-  color: string
-  width?: number
+  count: number
+  mode: DisplayMode
 }) {
-  const blades = useMemo(
-    () =>
-      Array.from(
-        { length: count },
-        (_, index) => (index * Math.PI * 2) / count,
-      ),
-    [count],
-  )
-
   return (
     <group position={[x, 0, 0]}>
-      <mesh rotation={[0, Math.PI / 2, 0]}>
-        <torusGeometry
-          args={[(radius + innerRadius) / 2, 0.025, 8, 48]}
-        />
-        <meshStandardMaterial
-          color="#77786e"
-          metalness={0.85}
-          roughness={0.32}
-        />
-      </mesh>
-
-      {blades.map((angle, index) => (
-        <mesh
-          key={index}
-          position={[
-            0,
-            Math.cos(angle) * ((innerRadius + radius) / 2),
-            Math.sin(angle) * ((innerRadius + radius) / 2),
-          ]}
-          rotation={[angle, 0, 0]}
-          castShadow
-        >
-          <boxGeometry args={[width, radius - innerRadius, 0.035]} />
-          <meshStandardMaterial
-            color={color}
-            metalness={0.78}
-            roughness={0.36}
-          />
-        </mesh>
-      ))}
-
-      <mesh rotation={[0, 0, Math.PI / 2]}>
-        <cylinderGeometry
-          args={[innerRadius, innerRadius, 0.12, 32]}
-        />
-        <meshStandardMaterial
-          color="#65675e"
-          metalness={0.85}
-          roughness={0.3}
-        />
-      </mesh>
+      <Ring x={0} radius={radius} mode={mode} />
+      {Array.from({ length: count }, (_, i) => {
+        const angle = (i / count) * Math.PI * 2
+        return (
+          <mesh
+            key={i}
+            position={[
+              0,
+              Math.cos(angle) * radius * 0.52,
+              Math.sin(angle) * radius * 0.52,
+            ]}
+            rotation={[angle, 0, 0]}
+            material={material(mode, '#aab1b0')}
+          >
+            <boxGeometry args={[0.08, radius * 0.78, 0.025]} />
+          </mesh>
+        )
+      })}
     </group>
   )
 }
 
 function Combustor({
+  mode,
   throttle,
   running,
 }: {
+  mode: DisplayMode
   throttle: number
   running: boolean
 }) {
   return (
     <group>
-      <MetalCylinder
-        x={-0.1}
-        length={0.78}
-        radius={0.78}
-        color="#66564a"
-        roughness={0.6}
-      />
+      <Duct x={0.02} radius={0.46} length={0.62} mode={mode} />
+      <Ring x={-0.29} radius={0.46} mode={mode} />
+      <Ring x={0.33} radius={0.46} mode={mode} />
 
-      <mesh position={[-0.1, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
-        <cylinderGeometry args={[0.66, 0.66, 0.7, 48, 1, true]} />
-        <meshBasicMaterial
-          color="#e27b3d"
-          transparent
-          opacity={running ? 0.15 + throttle / 300 : 0.035}
-          side={THREE.DoubleSide}
-        />
-      </mesh>
-
-      {[-0.39, -0.2, 0.02, 0.23].map((x) => (
-        <Ring
-          key={x}
-          x={x}
-          radius={0.69}
-          tube={0.025}
-          color={ENGINE_COLORS.bronze}
-        />
-      ))}
-
-      <mesh position={[-0.1, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
-        <cylinderGeometry args={[0.42, 0.42, 0.73, 32, 1, true]} />
-        <meshStandardMaterial
-          color="#f0a15a"
-          emissive="#e46e28"
-          emissiveIntensity={running ? throttle / 180 : 0}
-          transparent
-          opacity={0.22}
-          side={THREE.DoubleSide}
-        />
-      </mesh>
-    </group>
-  )
-}
-
-/**
- * Simplified variable-area exhaust nozzle.
- *
- * Engine axis: X.
- * Actual position: simulated actuator position from 0 to 100%.
- *
- * The petals form a ring around the X axis and extend longitudinally
- * from the turbine outlet. This is a conceptual visualization,
- * not manufacturing geometry.
- */
-function NozzlePetals({ actual }: { actual: number }) {
-  const opening = THREE.MathUtils.clamp(actual, 0, 100) / 100
-
-  const petals = useMemo(
-    () =>
-      Array.from(
-        { length: 12 },
-        (_, index) => (index * Math.PI * 2) / 12,
-      ),
-    [],
-  )
-
-  // The throat radius increases with simulated nozzle opening.
-  const throatRadius = 0.42 + opening * 0.27
-  const exitRadius = throatRadius + 0.12
-
-  const petalGeometry = useMemo(() => {
-    const shape = new THREE.Shape()
-
-    // Local X is the nozzle's longitudinal axis.
-    // Local Y is its radial direction before rotation around X.
-    shape.moveTo(0, 0.39)
-    shape.lineTo(0.70, 0.51)
-    shape.lineTo(0.70, 0.63)
-    shape.lineTo(0, 0.51)
-    shape.closePath()
-
-    return new THREE.ShapeGeometry(shape)
-  }, [])
-
-  return (
-    <group>
-      {/* Structural rings are centred on the engine's X axis. */}
-      <Ring
-        x={0}
-        radius={throatRadius}
-        tube={0.04}
-        color="#8d8c7e"
-      />
-
-      <Ring
-        x={0.70}
-        radius={exitRadius}
-        tube={0.035}
-        color="#c3bdae"
-      />
-
-      {petals.map((angle, index) => (
-        <mesh
-          key={index}
-          geometry={petalGeometry}
-          position={[0, 0, 0]}
-          rotation={[angle, 0, 0]}
-          castShadow
-          receiveShadow
-        >
-          <meshStandardMaterial
-            color={index % 2 ? '#bcb9ac' : '#d8d3c5'}
-            metalness={0.86}
-            roughness={0.3}
+      {running && throttle > 0 && mode === 'MODEL' && (
+        <mesh position={[0.02, 0, 0]}>
+          <cylinderGeometry args={[0.34, 0.34, 0.48, 32, 1, true]} />
+          <meshBasicMaterial
+            color="#f18a46"
+            transparent
+            opacity={0.1 + clamp(throttle) / 600}
             side={THREE.DoubleSide}
           />
         </mesh>
-      ))}
-
-      {/* Thin outer shroud around the variable-area petal assembly. */}
-      <mesh
-        position={[0.36, 0, 0]}
-        rotation={[0, 0, Math.PI / 2]}
-      >
-        <cylinderGeometry
-          args={[exitRadius + 0.055, throatRadius + 0.055, 0.72, 48, 1, true]}
-        />
-        <meshStandardMaterial
-          color="#4d5048"
-          metalness={0.72}
-          roughness={0.42}
-          side={THREE.DoubleSide}
-        />
-      </mesh>
+      )}
     </group>
   )
 }
 
-function ActuatorRails() {
+function ActuatorRails({
+  mode,
+  actual,
+}: {
+  mode: DisplayMode
+  actual: number
+}) {
+  const travel = clamp(actual) / 100
+
   return (
     <group>
-      {[0, 1, 2, 3].map((index) => {
-        const angle = (index * Math.PI) / 2 + Math.PI / 4
-        const y = Math.cos(angle) * 0.79
-        const z = Math.sin(angle) * 0.79
+      {Array.from({ length: 4 }, (_, i) => {
+        const angle = (i / 4) * Math.PI * 2
+        const y = Math.cos(angle) * 0.57
+        const z = Math.sin(angle) * 0.57
 
         return (
-          <group key={index}>
-            {/* Rails connect the turbine casing to the nozzle support. */}
+          <group key={i}>
             <mesh
-              position={[1.17, y, z]}
-              rotation={[angle, 0, 0]}
-              castShadow
+              position={[0.8, y, z]}
+              material={material(mode, '#778184')}
             >
-              <boxGeometry args={[0.95, 0.045, 0.045]} />
-              <meshStandardMaterial
-                color="#77796e"
-                metalness={0.86}
-                roughness={0.32}
-              />
+              <boxGeometry args={[0.65, 0.045, 0.045]} />
             </mesh>
-
-            {/* Actuator canister near the aft end of each rail. */}
             <mesh
-              position={[1.42, y * 1.06, z * 1.06]}
-              rotation={[0, 0, Math.PI / 2]}
-              castShadow
+              position={[0.58 + travel * 0.35, y * 1.08, z * 1.08]}
+              material={material(mode, '#d4a06d')}
             >
-              <cylinderGeometry args={[0.055, 0.055, 0.30, 16]} />
-              <meshStandardMaterial
-                color="#c3bdae"
-                metalness={0.9}
-                roughness={0.25}
-              />
+              <boxGeometry args={[0.18, 0.075, 0.075]} />
             </mesh>
           </group>
         )
@@ -334,285 +177,199 @@ function ActuatorRails() {
   )
 }
 
-function EngineModel({
-  throttle,
+function NozzlePetals({
   actual,
-  running,
+  mode,
 }: {
-  throttle: number
   actual: number
-  running: boolean
-  view: EngineView
+  mode: DisplayMode
 }) {
-  const plumeLength = running
-    ? 0.25 + (throttle / 100) * 1.0
-    : 0.05
+  const opening = clamp(actual) / 100
+  const innerRadius = 0.26 + opening * 0.25
+  const outerRadius = innerRadius + 0.16
 
   return (
     <group>
-      {/* Intake and compressor casing. */}
-      <MetalCylinder
-        x={-1.15}
-        length={0.72}
-        radius={0.78}
-        color="#9d9d91"
-      />
-
-      <MetalCylinder
-        x={-0.58}
-        length={0.42}
-        radius={0.72}
-        color="#777a70"
-      />
-
-      <Ring
-        x={-1.53}
-        radius={0.78}
-        tube={0.065}
-        color="#d2cec0"
-      />
-
-      <Ring x={-0.88} radius={0.76} tube={0.035} />
-
-      <BladeStage
-        x={-1.48}
-        count={18}
-        radius={0.64}
-        innerRadius={0.16}
-        color="#d0cbbb"
-        width={0.12}
-      />
-
-      {[-0.78, -0.63, -0.48, -0.33].map((x) => (
-        <BladeStage
-          key={x}
-          x={x}
-          count={14}
-          radius={0.65}
-          innerRadius={0.28}
-          color="#aaa99d"
-          width={0.075}
-        />
-      ))}
-
-      {/* Combustor casing and internal liner. */}
-      <MetalCylinder
-        x={0}
-        length={0.72}
-        radius={0.68}
-        color="#8c8170"
-      />
-
-      <Combustor throttle={throttle} running={running} />
-
-      {/* Turbine stages. */}
-      {[0.34, 0.5, 0.66].map((x) => (
-        <BladeStage
-          key={x}
-          x={x}
-          count={12}
-          radius={0.64}
-          innerRadius={0.3}
-          color="#d1c6b2"
-          width={0.075}
-        />
-      ))}
-
-      {/* Aft turbine casing; its downstream end is near X = 1.205. */}
-      <MetalCylinder
-        x={0.98}
-        length={0.45}
+      <Duct
+        x={1.18}
         radius={0.65}
-        color="#77796f"
+        length={0.56}
+        mode={mode}
+        color="#737d80"
       />
+      <Ring x={0.9} radius={0.58} mode={mode} />
+      <Ring x={1.46} radius={0.65} mode={mode} />
 
-      <Ring x={0.77} radius={0.65} tube={0.045} />
-      <Ring x={1.18} radius={0.61} tube={0.04} />
+      {Array.from({ length: 12 }, (_, i) => {
+        const angle = (i / 12) * Math.PI * 2
+        const shape = new THREE.Shape()
+        shape.moveTo(-0.27, innerRadius)
+        shape.lineTo(0.27, innerRadius)
+        shape.lineTo(0.31, outerRadius)
+        shape.lineTo(-0.31, outerRadius)
+        shape.closePath()
 
-      {/* Supports sit between the turbine casing and nozzle assembly. */}
-      <ActuatorRails />
+        return (
+          <mesh
+            key={i}
+            geometry={new THREE.ShapeGeometry(shape)}
+            position={[1.18, 0, 0]}
+            rotation={[angle, 0, 0]}
+            material={material(mode, '#b4b9b4')}
+          />
+        )
+      })}
 
-      {/*
-        Nozzle throat starts at X = 1.20, close to the aft turbine outlet.
-        The petal assembly extends downstream along the positive X axis.
-      */}
-      <group position={[1.20, 0, 0]}>
-        <NozzlePetals actual={actual} />
-      </group>
-
-      {/* Illustrative exhaust plume. Not a fluid or combustion simulation. */}
-      <mesh
-        position={[2.62 + plumeLength / 2, 0, 0]}
-        rotation={[0, 0, Math.PI / 2]}
-      >
-        <cylinderGeometry
-          args={[
-            0.06,
-            0.35 + (throttle / 100) * 0.2,
-            plumeLength,
-            32,
-            1,
-            true,
-          ]}
-        />
-        <meshBasicMaterial
-          color={ENGINE_COLORS.exhaust}
-          transparent
-          opacity={running ? 0.24 + throttle / 400 : 0}
-          side={THREE.DoubleSide}
-        />
-      </mesh>
-
-      <mesh
-        position={[2.68 + plumeLength * 0.28, 0, 0]}
-        rotation={[0, 0, Math.PI / 2]}
-      >
-        <cylinderGeometry
-          args={[
-            0.025,
-            0.12 + (throttle / 100) * 0.09,
-            plumeLength * 0.65,
-            24,
-            1,
-            true,
-          ]}
-        />
-        <meshBasicMaterial
-          color="#fff0d0"
-          transparent
-          opacity={running ? throttle / 180 : 0}
-          side={THREE.DoubleSide}
-        />
-      </mesh>
-
-      {/* Component labels. */}
-      <Html
-        position={[-1.2, 1.05, 0]}
-        center
-        distanceFactor={8}
-        style={{ pointerEvents: 'none' }}
-      >
-        <span className="scene-label">COMPRESSOR</span>
-      </Html>
-
-      <Html
-        position={[-0.08, 1.05, 0]}
-        center
-        distanceFactor={8}
-        style={{ pointerEvents: 'none' }}
-      >
-        <span className="scene-label">COMBUSTOR</span>
-      </Html>
-
-      <Html
-        position={[0.85, 1.05, 0]}
-        center
-        distanceFactor={8}
-        style={{ pointerEvents: 'none' }}
-      >
-        <span className="scene-label">TURBINE</span>
-      </Html>
-
-      <Html
-        position={[1.95, 1.05, 0]}
-        center
-        distanceFactor={8}
-        style={{ pointerEvents: 'none' }}
-      >
-        <span className="scene-label">VARIABLE NOZZLE</span>
-      </Html>
+      <Ring x={1.49} radius={innerRadius} mode={mode} color="#dca779" />
     </group>
   )
 }
 
-function SceneFallback() {
+function ExhaustPlume({
+  throttle,
+  running,
+  mode,
+}: {
+  throttle: number
+  running: boolean
+  mode: DisplayMode
+}) {
+  if (!running || throttle <= 0 || mode !== 'MODEL') return null
+
+  const intensity = clamp(throttle) / 100
+  const length = 0.45 + intensity * 1.3
+  const radius = 0.1 + intensity * 0.23
+
   return (
-    <Html center>
-      <div className="scene-loading">Preparing 3D engine…</div>
-    </Html>
+    <group position={[1.65, 0, 0]}>
+      <mesh
+        position={[length / 2, 0, 0]}
+        rotation={[0, 0, -Math.PI / 2]}
+      >
+        <coneGeometry args={[radius, length, 28, 1, true]} />
+        <meshBasicMaterial
+          color="#f1a05e"
+          transparent
+          opacity={0.12 + intensity * 0.15}
+          side={THREE.DoubleSide}
+          depthWrite={false}
+        />
+      </mesh>
+      <mesh
+        position={[length * 0.35, 0, 0]}
+        rotation={[0, 0, -Math.PI / 2]}
+      >
+        <coneGeometry args={[radius * 0.4, length * 0.7, 24, 1, true]} />
+        <meshBasicMaterial
+          color="#fff0ce"
+          transparent
+          opacity={0.12 + intensity * 0.15}
+          side={THREE.DoubleSide}
+          depthWrite={false}
+        />
+      </mesh>
+    </group>
   )
 }
 
-function EngineScene({
+function EngineModel({
   throttle,
-  target: _target,
   actual,
   running,
-  view,
-  displayMode = 'MODEL',
+  displayMode,
 }: {
   throttle: number
-  target: number
   actual: number
   running: boolean
-  view: EngineView
-  displayMode?: DisplayMode
+  displayMode: DisplayMode
 }) {
-  const cameraPosition: [number, number, number] =
-    view === 'REAR'
-      ? [5.8, 0.12, 0.01]
-      : [0.25, 3.6, 7.2]
+  return (
+    <group>
+      <Duct x={-0.76} radius={0.51} length={1.45} mode={displayMode} />
+      <Ring x={-1.48} radius={0.51} mode={displayMode} />
+      <Ring x={-0.04} radius={0.51} mode={displayMode} />
+      <BladeStage x={-1.25} radius={0.42} count={14} mode={displayMode} />
+      <BladeStage x={-0.82} radius={0.41} count={12} mode={displayMode} />
+      <Combustor mode={displayMode} throttle={throttle} running={running} />
+      <BladeStage x={0.49} radius={0.42} count={12} mode={displayMode} />
+      <ActuatorRails mode={displayMode} actual={actual} />
+      <NozzlePetals actual={actual} mode={displayMode} />
+      <ExhaustPlume throttle={throttle} running={running} mode={displayMode} />
+    </group>
+  )
+}
+
+export default function EngineScene({
+  throttle,
+  target,
+  actual = 0,
+  running,
+  view,
+  displayMode,
+}: EngineSceneProps) {
+  const measuredPosition = clamp(actual)
+  const rearView = view === 'REAR'
 
   return (
     <div
-      className={`engine-scene ${
-        view === 'REAR' ? 'rear-camera' : 'side-camera'
-      } ${displayMode.toLowerCase()}`}
+      className={`engine-canvas ${displayMode === 'X-RAY' ? 'engine-xray' : ''} ${displayMode === 'SCHEMATIC' ? 'engine-schematic' : ''}`}
+      role="img"
+      aria-label={`${rearView ? 'Rear' : 'Side'} view of the AERION-X conceptual exhaust model`}
     >
       <Canvas
-        key={view}
-        shadows
-        dpr={[1, 1.6]}
-        camera={{
-          position: cameraPosition,
-          fov: view === 'REAR' ? 46 : 38,
+        dpr={[1, 1.5]}
+        gl={{ antialias: true, alpha: false }}
+        onCreated={({ gl }) => {
+          gl.setClearColor('#171b1b', 1)
+          gl.toneMapping = THREE.ACESFilmicToneMapping
+          gl.toneMappingExposure = 1.1
         }}
       >
-        <color attach="background" args={['#eae6dc']} />
+        <color attach="background" args={['#171b1b']} />
+        <ambientLight intensity={1.1} />
+        <directionalLight position={[3, 5, 5]} intensity={2.1} />
+        <directionalLight position={[-4, 2, -3]} intensity={1.1} />
+        <pointLight position={[2, 0, 0]} color="#e8a16d" intensity={0.8} />
 
-        <ambientLight intensity={1.25} />
-
-        <directionalLight
-          position={[4, 5, 6]}
-          intensity={2.1}
-          castShadow
+        <PerspectiveCamera
+          makeDefault
+          position={rearView ? [3.2, 0.15, 0.01] : [0.15, 1.25, 6.0]}
+          fov={rearView ? 38 : 32}
         />
 
-        <directionalLight
-          position={[-4, 2, -4]}
-          intensity={1.0}
-          color="#e7a16f"
-        />
-
-        <Suspense fallback={<SceneFallback />}>
-          <EngineModel
-            throttle={throttle}
-            actual={actual}
-            running={running}
-            view={view}
-          />
+        <Suspense fallback={null}>
+          <Environment preset="city" environmentIntensity={0.35} />
         </Suspense>
 
+        <EngineModel
+          throttle={throttle}
+          actual={measuredPosition}
+          running={running}
+          displayMode={displayMode}
+        />
+
+        <gridHelper
+          args={[8, 24, '#343c3b', '#252b2b']}
+          position={[0, -1.05, 0]}
+        />
+
         <OrbitControls
+          makeDefault
+          enableDamping
+          dampingFactor={0.08}
           enablePan={false}
-          minDistance={3.4}
+          minDistance={2.5}
           maxDistance={10}
-          maxPolarAngle={Math.PI * 0.82}
-          minPolarAngle={0.18}
+          target={[0, 0, 0]}
         />
       </Canvas>
 
-      <span className="scene-view-label">
-        {view === 'REAR'
-          ? 'REAR NOZZLE / PETAL GEOMETRY'
-          : 'ENGINE CUTAWAY / SIDE VIEW'}
-      </span>
-
-      <span className="scene-scale-label">
-        PROCEDURAL MODEL · NOT TO SCALE
-      </span>
+      <div className="engine-overlay">
+        <span>{rearView ? 'NOZZLE / REAR VIEW' : 'AXIAL / SIDE VIEW'}</span>
+        <span>
+          TARGET {clamp(target).toFixed(0)}% · ACTUAL {measuredPosition.toFixed(1)}%
+        </span>
+      </div>
     </div>
   )
 }
-
-export default memo(EngineScene)

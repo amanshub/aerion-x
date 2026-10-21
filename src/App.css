@@ -47,13 +47,16 @@
 .panel-heading .eyebrow { margin-bottom: 5px; }
 .panel-heading h2, .reference-panel > h2, .response-panel > h2 { font: 600 21px var(--heading); margin: 0; color: var(--ink); }
 .small-tag { flex-shrink: 0; display: inline-block; padding: 5px 7px; border: 1px solid #d5cabc; color: #8a725f; font: 8px var(--mono); letter-spacing: .25px; white-space: nowrap; }
-.engine-scene { position: relative; width: 100%; height: clamp(290px, 30vw, 440px); margin-top: 13px; overflow: hidden; border: 1px solid #d6d0c3; background: #eae6dc; }
+
+/* Larger exhaust viewport; keep the engine labels inside the scene. */
+.engine-scene { position: relative; width: 100%; height: clamp(380px, 38vw, 560px); margin-top: 13px; overflow: hidden; border: 1px solid #d6d0c3; background: #171b19; }
 .engine-scene canvas { display: block; width: 100%; height: 100%; touch-action: pan-y; }
 .scene-label { color: #62645b; background: #eae6dcdd; padding: 3px 5px; border: 1px solid #d1ccbf; font: 8px var(--mono); white-space: nowrap; letter-spacing: .3px; }
 .scene-loading { color: #55574e; font: 11px var(--mono); background: #f3f0e7; padding: 12px; border: 1px solid var(--line); }
-.scene-view-label, .scene-scale-label { position: absolute; bottom: 9px; color: #77786d; font: 8px var(--mono); letter-spacing: .35px; pointer-events: none; }
+.scene-view-label, .scene-scale-label { position: absolute; bottom: 9px; color: #d0d0c5; font: 8px var(--mono); letter-spacing: .35px; pointer-events: none; }
 .scene-view-label { left: 10px; }
 .scene-scale-label { right: 10px; text-align: right; }
+
 .engine-annotations { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; margin-top: 9px; }
 .engine-annotations > div { display: grid; grid-template-columns: 13px 1fr; align-items: center; gap: 3px; min-width: 0; font-size: 8px; }
 .engine-annotations i { height: 13px; width: 1px; background: #aaa496; grid-row: span 2; justify-self: center; }
@@ -130,10 +133,62 @@
 .stage-status { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 3px; margin-top: 13px; }.stage-status > div { display: flex; align-items: center; flex-direction: column; gap: 6px; min-width: 0; }.stage-status i { width: 9px; height: 9px; border-radius: 50%; background: #55a17a; border: 1px solid #d0e0d1; }.stage-status i.stage-active { background: var(--orange); border-color: #e7ae86; }.stage-status i.stage-paused { background: #aaa69a; border-color: #d3cfc4; }.stage-status span { font: 7px var(--mono); color: #717268; text-align: center; overflow-wrap: anywhere; }
 .hardware-strip { margin-top: 12px; display: flex; align-items: center; gap: 12px; padding: 11px 13px; border: 1px solid var(--line); background: #e1ddd1; }.hardware-strip > svg { width: 18px; color: #77796d; }.hardware-strip > div { display: grid; gap: 4px; }.hardware-strip strong { font-size: 10px; }.hardware-strip span { color: var(--muted); font-size: 9px; }.hardware-status { margin-left: auto; color: #955a35 !important; font: 9px var(--mono) !important; white-space: nowrap; }
 footer { margin-top: 15px; padding-top: 11px; border-top: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; color: #7e7d72; font: 8px var(--mono); }footer > span:last-child { display: flex; align-items: center; gap: 7px; }footer i { width: 7px; height: 7px; display: inline-block; border-radius: 50%; background: #54a27c; }
-@media (min-width: 1500px) { .app-shell { grid-template-columns: 230px minmax(0, 1fr); }.engine-scene { height: clamp(360px, 31vw, 500px); }.controls-grid { gap: 12px; }.slider-control, .system-actions, .view-actions { padding: 14px; } }
+@media (min-width: 1500px) { .app-shell { grid-template-columns: 230px minmax(0, 1fr); }.engine-scene { height: clamp(400px, 34vw, 560px); }.controls-grid { gap: 12px; }.slider-control, .system-actions, .view-actions { padding: 14px; } }
 @media (max-width: 1200px) { .app-shell { grid-template-columns: 185px minmax(0, 1fr); }.sidebar { padding-inline: 10px; }.hero-grid { grid-template-columns: minmax(0, 1.55fr) minmax(235px, .9fr); }.controls-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }.bottom-grid { grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); }.engine-state-panel { grid-column: 1 / -1; }.state-visual svg { max-height: 130px; }.build-tag { display: none; } }
-@media (max-width: 780px) { .app-shell { grid-template-columns: 1fr; }.sidebar { position: relative; height: auto; min-height: 0; padding: 12px 14px; overflow: visible; }.brand-lockup { flex-direction: row; justify-content: flex-start; text-align: left; padding: 0 0 12px; gap: 10px; }.brand-mark { font-size: 28px; height: 30px; }.brand-lockup > strong { font-size: 22px; margin: 0; }.brand-lockup > small { margin: 0 0 0 auto; text-align: right; font-size: 8px; }.side-nav { display: flex; overflow-x: auto; padding-top: 10px; }.nav-link { flex-shrink: 0; min-height: 34px; padding: 0 8px; font-size: 10px; }.nav-link svg { width: 14px; }.sidebar-aircraft { display: none; }.sidebar-status { display: flex; border-top: 0; padding: 10px 2px 0; font-size: 9px; }.sidebar-status small { margin: 0 0 0 auto; }.utility-bar { padding: 0 12px; min-height: 42px; }.utility-title { font-size: 8px; gap: 8px; }.utility-title > span:last-child { display: none; }.utility-title > i { display: none; }.simulation-tag { padding: 0 7px; font-size: 8px; }.mode-tab { height: 42px; padding: 0 9px; font-size: 9px; }.dashboard { padding: 16px 12px; }.hero-grid { grid-template-columns: 1fr; }.engine-scene { height: clamp(280px, 58vw, 420px); }.controls-grid { grid-template-columns: 1fr 1fr; }.bottom-grid { grid-template-columns: 1fr; }.engine-state-panel { grid-column: auto; }.state-visual svg { max-height: 120px; } }
-@media (max-width: 460px) { .brand-lockup > small { display: none; }.intro-row h1 { font-size: 24px; }.project-stamp { display: none; }.engine-scene { height: 290px; }.engine-annotations { gap: 3px; }.engine-annotations > div { grid-template-columns: 10px 1fr; font-size: 7px; }.engine-annotations strong { font-size: 8px; }.controls-grid { grid-template-columns: 1fr; }.readings-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }.reading > strong { font-size: 22px; }.detail-readings { grid-template-columns: 1fr; }.utility-controls { margin-left: auto; }.reference-panel { padding: 11px; }.hardware-strip { align-items: flex-start; flex-wrap: wrap; }.hardware-status { margin-left: 30px; }.engine-panel-footer { align-items: flex-start; flex-direction: column; } }
+@media (max-width: 780px) { .app-shell { grid-template-columns: 1fr; }.sidebar { position: relative; height: auto; min-height: 0; padding: 12px 14px; overflow: visible; }.brand-lockup { flex-direction: row; justify-content: flex-start; text-align: left; padding: 0 0 12px; gap: 10px; }.brand-mark { font-size: 28px; height: 30px; }.brand-lockup > strong { font-size: 22px; margin: 0; }.brand-lockup > small { margin: 0 0 0 auto; text-align: right; font-size: 8px; }.side-nav { display: flex; overflow-x: auto; padding-top: 10px; }.nav-link { flex-shrink: 0; min-height: 34px; padding: 0 8px; font-size: 10px; }.nav-link svg { width: 14px; }.sidebar-aircraft { display: none; }.sidebar-status { display: flex; border-top: 0; padding: 10px 2px 0; font-size: 9px; }.sidebar-status small { margin: 0 0 0 auto; }.utility-bar { padding: 0 12px; min-height: 42px; }.utility-title { font-size: 8px; gap: 8px; }.utility-title > span:last-child { display: none; }.utility-title > i { display: none; }.simulation-tag { padding: 0 7px; font-size: 8px; }.mode-tab { height: 42px; padding: 0 9px; font-size: 9px; }.dashboard { padding: 16px 12px; }.hero-grid { grid-template-columns: 1fr; }.engine-scene { height: clamp(320px, 65vw, 500px); }.controls-grid { grid-template-columns: 1fr 1fr; }.bottom-grid { grid-template-columns: 1fr; }.engine-state-panel { grid-column: auto; }.state-visual svg { max-height: 120px; } }
+@media (max-width: 460px) { .brand-lockup > small { display: none; }.intro-row h1 { font-size: 24px; }.project-stamp { display: none; }.engine-scene { height: 320px; }.engine-annotations { gap: 3px; }.engine-annotations > div { grid-template-columns: 10px 1fr; font-size: 7px; }.engine-annotations strong { font-size: 8px; }.controls-grid { grid-template-columns: 1fr; }.readings-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }.reading > strong { font-size: 22px; }.detail-readings { grid-template-columns: 1fr; }.utility-controls { margin-left: auto; }.reference-panel { padding: 11px; }.hardware-strip { align-items: flex-start; flex-wrap: wrap; }.hardware-status { margin-left: 30px; }.engine-panel-footer { align-items: flex-start; flex-direction: column; } }
 
 .engine-scene.x-ray canvas { filter: grayscale(1) contrast(1.12); }
 .engine-scene.schematic canvas { filter: grayscale(1) contrast(1.22) brightness(1.05); }
+
+/* Fix the actual 3D exhaust component */
+.engine-canvas {
+  position: relative;
+  width: 100%;
+  height: clamp(380px, 38vw, 560px);
+  margin-top: 13px;
+  overflow: hidden;
+  border: 1px solid #343c3b;
+  background: #171b1b;
+}
+
+.engine-canvas canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.engine-overlay {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  padding: 8px 10px;
+  color: #e1ddd1;
+  background: linear-gradient(transparent, rgba(15, 18, 17, 0.88));
+  font: 9px var(--mono);
+  letter-spacing: 0.35px;
+  pointer-events: none;
+}
+
+@media (max-width: 780px) {
+  .engine-canvas {
+    height: clamp(320px, 65vw, 500px);
+  }
+}
+
+@media (max-width: 460px) {
+  .engine-canvas {
+    height: 320px;
+  }
+
+  .engine-overlay {
+    font-size: 8px;
+  }
+}

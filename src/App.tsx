@@ -1,10 +1,12 @@
-
+﻿
 import { useEffect, useRef, useState } from 'react'
 import {
   Activity, Box, ChartNoAxesColumn, Cpu, FileText, Gauge,
   House, Power, RotateCcw, Settings2, Waves, ChevronRight
 } from 'lucide-react'
 import EngineScene, { type EngineView } from './components/EngineScene'
+import TelemetryPanel from './components/TelemetryPanel'
+import type { AerionTelemetry } from './telemetry/mqttTelemetry'
 import {
   illustrativeTemperature,
   stepNozzlePosition,
@@ -17,6 +19,8 @@ function App() {
   const [throttle, setThrottle] = useState(45)
   const [target, setTarget] = useState(35)
   const [actual, setActual] = useState(0)
+  const [liveTelemetry, setLiveTelemetry] = useState<AerionTelemetry | null>(null)
+  const [mqttConnected, setMqttConnected] = useState(false)
   const [running, setRunning] = useState(true)
   const [mode, setMode] = useState<'MANUAL' | 'AUTO'>('MANUAL')
   const [view, setView] = useState<EngineView>('SIDE')
@@ -25,15 +29,25 @@ function App() {
     Array.from({ length: 40 }, () => 0),
   )
 
-  // Keep the latest position available to the history sampler.
-  const actualRef = useRef(actual)
+  // Live MQTT positions are reported in degrees (0–180); the dashboard uses percent (0–100).
+  const displayedActual = mqttConnected && liveTelemetry
+    ? Math.max(0, Math.min(100, liveTelemetry.model_position_deg / 1.8))
+    : actual
+  const displayedTarget = mqttConnected && liveTelemetry
+    ? Math.max(0, Math.min(100, liveTelemetry.target_deg / 1.8))
+    : target
+
+  // Keep the displayed position available to the history sampler.
+  const actualRef = useRef(displayedActual)
 
   useEffect(() => {
-    actualRef.current = actual
-  }, [actual])
+    actualRef.current = displayedActual
+  }, [displayedActual])
 
   // Simulate actuator movement at 50 ms intervals.
   useEffect(() => {
+    if (mqttConnected) return
+
     let previousTime = performance.now()
 
     const timer = window.setInterval(() => {
@@ -47,7 +61,7 @@ function App() {
     }, 50)
 
     return () => window.clearInterval(timer)
-  }, [target, running])
+  }, [target, running, mqttConnected])
 
   // Sample the latest actual position for the response graph.
   useEffect(() => {
@@ -62,7 +76,7 @@ function App() {
   }, [])
 
   // AUTO remains a UI placeholder; no automatic controller is implemented.
-  const error = target - actual
+  const error = displayedTarget - displayedActual
   const temperature = illustrativeTemperature(throttle, running)
   const rpm = running ? Math.round(1800 + throttle * 74) : 0
 
@@ -165,8 +179,8 @@ function App() {
 
               <EngineScene
                 throttle={throttle}
-                target={target}
-                actual={actual}
+                target={displayedTarget}
+                actual={displayedActual}
                 running={running}
                 view={view}
                 displayMode={panelView}
@@ -305,12 +319,12 @@ function App() {
             <article className="telemetry-panel" id="telemetry">
               <div className="section-bar">
                 <p className="eyebrow">04 / TELEMETRY</p>
-                <span className="small-tag">SIMULATED</span>
+                <span className="small-tag">{mqttConnected ? 'LIVE MQTT' : 'SIMULATED'}</span>
               </div>
               <div className="readings-grid">
                 <Reading label="Throttle command" value={`${throttle}%`} percent={throttle} tone="orange" />
-                <Reading label="Nozzle target" value={`${target}%`} percent={target} tone="olive" />
-                <Reading label="Actual position" value={`${actual.toFixed(1)}%`} percent={actual} tone="blue" />
+                <Reading label="Nozzle target" value={`${displayedTarget.toFixed(1)}%`} percent={displayedTarget} tone="olive" />
+                <Reading label="Actual position" value={`${displayedActual.toFixed(1)}%`} percent={displayedActual} tone="blue" />
                 <Reading label="Tracking error" value={`${error.toFixed(1)}%`} percent={Math.min(100, Math.abs(error))} tone="red" />
               </div>
               <div className="detail-readings">
@@ -318,16 +332,16 @@ function App() {
                 <div><span>Engine speed estimate</span><strong>{rpm.toLocaleString()} rpm</strong></div>
                 <div><span>Controller mode</span><strong>{mode}</strong></div>
               </div>
-              <p className="fine-print">Illustrative simulation only. Temperature and RPM are estimates, not engine predictions or hardware readings.</p>
+              <p className="fine-print">{mqttConnected && liveTelemetry ? `MQTT device ${liveTelemetry.device} · sequence ${liveTelemetry.sequence} · sensor ${liveTelemetry.sensor_deg.toFixed(1)}° · fault ${liveTelemetry.fault}` : 'Illustrative simulation only. Temperature and RPM are estimates, not engine predictions or hardware readings.'}</p>
             </article>
 
             <article className="response-panel">
               <p className="eyebrow">05 / POSITION RESPONSE</p>
               <h2>Command tracking</h2>
-              <ResponseChart target={target} history={history} />
+              <ResponseChart target={displayedTarget} history={history} />
               <div className="chart-legend">
                 <span><i className="target-key" />Target position</span>
-                <span><i className="actual-key" />Simulated actual</span>
+                <span><i className="actual-key" />{mqttConnected ? 'Live actuator' : 'Simulated actual'}</span>
               </div>
               <p className="fine-print">Time-stepped first-order actuator approximation; not measured test data.</p>
             </article>
@@ -335,10 +349,10 @@ function App() {
             <article className="engine-state-panel">
               <p className="eyebrow">06 / ENGINE STATE</p>
               <div className="state-visual">
-                <MiniEngineState throttle={throttle} target={target} running={running} />
+                <MiniEngineState throttle={throttle} target={displayedTarget} running={running} />
                 <div className="state-values">
                   <span>THROTTLE <strong>{throttle}%</strong></span>
-                  <span>NOZZLE <strong>{actual.toFixed(1)}%</strong></span>
+                  <span>NOZZLE <strong>{displayedActual.toFixed(1)}%</strong></span>
                 </div>
               </div>
               <div className="stage-status">
@@ -359,13 +373,18 @@ function App() {
               <strong>Hardware integration</strong>
               <span>ESP32 · servo actuator · potentiometer · Wokwi</span>
             </div>
-            <span className="hardware-status">NOT CONNECTED</span>
+            <span className="hardware-status">{mqttConnected ? 'MQTT CONNECTED' : 'NOT CONNECTED'}</span>
           </section>
 
           <footer id="documentation">
             <span>AERION-X / ENGINEERING DEMONSTRATOR / BUILD 003</span>
-            <span><i />SOFTWARE SIMULATION · NO HARDWARE CONNECTED</span>
+            <span><i />{mqttConnected ? 'LIVE MQTT TELEMETRY' : 'SOFTWARE SIMULATION · NO HARDWARE CONNECTED'}</span>
           </footer>
+
+          <TelemetryPanel
+            onTelemetry={setLiveTelemetry}
+            onConnectionChange={setMqttConnected}
+          />
         </div>
       </section>
     </main>
