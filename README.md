@@ -117,7 +117,6 @@ npm run dev
 ```
 
 Open [http://localhost:5173](http://localhost:5173)
-https://wokwi.com/projects/478508253547370497
 
 ### Production build
 
@@ -130,7 +129,7 @@ npm run preview
 
 ## Hardware Setup (ESP32 / Wokwi)
 
-The embedded layer runs in [Wokwi](https://wokwi.com) — no physical hardware required to demonstrate.
+The embedded layer runs in [Wokwi](https://wokwi.com/projects/478508253547370497) — no physical hardware required to demonstrate.
 
 **Components in simulation:**
 - ESP32 DevKit
